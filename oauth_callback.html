@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login - Another Farm</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #2d5a27;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      color: #fff;
+    }
+    .card {
+      background: #3a7a30;
+      border-radius: 20px;
+      padding: 40px 32px;
+      text-align: center;
+      max-width: 340px;
+      margin: 20px;
+    }
+    .icon { font-size: 64px; margin-bottom: 16px; }
+    h1 { font-size: 1.4em; margin-bottom: 8px; }
+    .subtitle { margin-top: 12px; opacity: 0.85; font-size: 0.95em; line-height: 1.5; }
+    .error-detail { color: #ffcccc; font-size: 0.8em; margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon" id="icon">&#9203;</div>
+    <h1 id="title">Processing...</h1>
+    <p class="subtitle" id="subtitle">Please wait while we complete your sign-in.</p>
+  </div>
+  <script>
+    (function() {
+      var params = new URLSearchParams(window.location.search);
+      var code = params.get('code');
+      var state = params.get('state');
+      var error = params.get('error');
+
+      var iconEl = document.getElementById('icon');
+      var titleEl = document.getElementById('title');
+      var subtitleEl = document.getElementById('subtitle');
+
+      if (error) {
+        iconEl.innerHTML = '&#10060;';
+        titleEl.textContent = 'Sign-in Cancelled';
+        subtitleEl.textContent = 'You can close this tab and return to the game.';
+        return;
+      }
+
+      if (!code || !state) {
+        iconEl.innerHTML = '&#10060;';
+        titleEl.textContent = 'Error';
+        subtitleEl.textContent = 'Missing authorization data. Please try again.';
+        return;
+      }
+
+      // State format: sessionId:nonce
+      var sessionId = state.split(':')[0];
+      if (!sessionId) {
+        iconEl.innerHTML = '&#10060;';
+        titleEl.textContent = 'Error';
+        subtitleEl.textContent = 'Invalid session. Please try again.';
+        return;
+      }
+
+      // Write the auth code to Firebase RTDB so the app can pick it up
+      var RTDB_URL = 'https://another-farm-6c712-default-rtdb.asia-southeast1.firebasedatabase.app';
+      var payload = JSON.stringify({ code: code, state: state, ts: Date.now() });
+
+      fetch(RTDB_URL + '/oauth_pending/' + sessionId + '.json', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: payload
+      })
+      .then(function(response) {
+        if (response.ok) {
+          iconEl.innerHTML = '&#9989;';
+          titleEl.textContent = 'Login Successful!';
+          subtitleEl.textContent = 'You can close this tab and return to the game.';
+        } else {
+          throw new Error('HTTP ' + response.status);
+        }
+      })
+      .catch(function(err) {
+        iconEl.innerHTML = '&#10060;';
+        titleEl.textContent = 'Error';
+        subtitleEl.innerHTML = 'Could not complete sign-in. Please try again.';
+        var detail = document.createElement('p');
+        detail.className = 'error-detail';
+        detail.textContent = err.message;
+        subtitleEl.parentNode.appendChild(detail);
+      });
+    })();
+  </script>
+</body>
+</html>
